@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+@theme {
+  /* Definimos la animación de la pluma */
+  @keyframes abrirPluma {
+    0% {
+      transform: translateX(-50%) rotate(0deg);
+    }
+    20% {
+      transform: translateX(-50%) rotate(5deg);
+    }
+    100% {
+      transform: translateX(-50%) rotate(-90deg);
+    }
+  }
+
+  /* Registramos la utilidad para usarla como animate-abrirPluma */
+  --animate-abrirPluma: abrirPluma 1.8s ease-out forwards;
+}
+
+/* Opcional: Para que el scroll se vea más pro en el modo oscuro */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 10px;
+}
