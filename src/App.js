@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, NavLink, Navigate } from 'react
 import { 
   LayoutDashboard, UserCog, FileBarChart, 
   Car, UserPlus, LogOut, ShieldCheck, 
-  Unlock, Zap
+  Unlock, Zap, Search // Se añadió Search para el icono del buscador
 } from 'lucide-react';
 
 // --- IMÁGENES EN LA RAÍZ DE SRC ---
@@ -18,6 +18,7 @@ import MiVehiculo from './pages/MiVehiculo';
 import RegistroVisitas from './pages/RegistroVisitas';
 import Login from './pages/Login';
 import ActualizarPassword from './pages/ActualizarPassword';
+import ReporteVehiculo from './pages/ReporteVehiculo'; // 1. IMPORTACIÓN DE LA NUEVA PÁGINA
 
 function App() {
   const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')) || null);
@@ -27,7 +28,6 @@ function App() {
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
     
-    // Solo mostramos animación si NO es su primer ingreso
     if (userData.primer_ingreso !== 1) {
       setMostrandoAnimacion(true);
       setTimeout(() => setMostrandoAnimacion(false), 2500);
@@ -39,7 +39,6 @@ function App() {
     setUser(null);
   };
 
-  // 1. Si no hay usuario logueado, va al Login
   if (!user) {
     return (
       <Router>
@@ -50,7 +49,6 @@ function App() {
     );
   }
 
-  // 2. BLOQUEO DE SEGURIDAD: Si es primer ingreso (valor 1), forzamos la actualización
   if (user.primer_ingreso === 1) {
     return (
       <Router>
@@ -61,12 +59,10 @@ function App() {
     );
   }
 
-  // 3. Animación de éxito para usuarios regulares
   if (mostrandoAnimacion) {
     return <AnimacionPluma user={user} />;
   }
 
-  // 4. Layout Principal con Sidebar y Contenido
   return (
     <Router>
       <div className="flex min-h-screen bg-slate-950 text-slate-200 font-sans">
@@ -92,6 +88,8 @@ function App() {
                 <NavItem to="/usuarios" icon={<UserCog size={20}/>} label="Usuarios" />
                 <NavItem to="/reportes" icon={<FileBarChart size={20}/>} label="Reportes" />
                 <NavItem to="/visitas" icon={<UserPlus size={20}/>} label="Visitas" />
+                {/* 2. NAVITEM PARA EL BUSCADOR DE VEHÍCULOS */}
+                <NavItem to="/reporte-vehiculo" icon={<Search size={20}/>} label="Buscador" />
               </>
             )}
           </nav>
@@ -126,6 +124,8 @@ function App() {
                   <Route path="/usuarios" element={<GestionUsuarios />} />
                   <Route path="/reportes" element={<Reportes />} />
                   <Route path="/visitas" element={<RegistroVisitas />} />
+                  {/* 3. RUTA PARA LA NUEVA PÁGINA */}
+                  <Route path="/reporte-vehiculo" element={<ReporteVehiculo />} />
                   <Route path="/" element={<Navigate to="/terminal" />} />
                 </>
               ) : (
