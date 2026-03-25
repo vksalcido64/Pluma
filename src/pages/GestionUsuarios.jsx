@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { 
     UserPlus, Search, UserCheck, ShieldAlert, 
     Car, ChevronLeft, ChevronRight,
-    Info, Clock, MapPin, X, Lock
+    Info, Clock, MapPin, X, Lock, Hash
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import NuevoUsuarioModal from '../components/NuevoUsuarioModal'; 
@@ -25,7 +25,6 @@ const GestionUsuarios = () => {
             const response = await fetch(url);
             const data = await response.json();
             
-            // --- CONSOLE LOG 1: Ver qué llega de la API ---
             console.log("Respuesta completa de IONOS:", data);
 
             if (data.success) {
@@ -43,9 +42,7 @@ const GestionUsuarios = () => {
         fetchUsuarios();
     }, [fetchUsuarios]);
 
-    // Función para abrir detalle con Log
     const abrirDetalle = (u) => {
-        // --- CONSOLE LOG 2: Ver el objeto específico al hacer clic ---
         console.log("Datos del usuario seleccionado:", u);
         setUsuarioDetalle(u);
     };
@@ -189,7 +186,7 @@ const GestionUsuarios = () => {
                 </div>
             </div>
 
-            {/* MODAL DETALLE */}
+            {/* MODAL DETALLE ACTUALIZADO */}
             {usuarioDetalle && (
                 <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-xl animate-in fade-in">
                     <div className="bg-slate-900 border border-white/10 w-full max-w-2xl rounded-[3rem] overflow-hidden shadow-2xl relative">
@@ -218,18 +215,33 @@ const GestionUsuarios = () => {
                                         <Car size={14} className="text-emerald-500"/> Garaje Vinculado
                                     </h3>
                                     <div className="space-y-3">
-                                        {usuarioDetalle.placas_registradas ? usuarioDetalle.placas_registradas.split(',').map((p, i) => (
-                                            <div key={i} className="bg-black/40 p-5 rounded-[1.5rem] border border-white/5 flex flex-col gap-2 group hover:border-emerald-500/20 transition-all">
-                                                <div className="flex justify-between items-center">
-                                                    <span className="text-white font-mono font-black text-lg tracking-tight group-hover:text-emerald-400 transition-colors">{p.trim()}</span>
-                                                    <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
+                                        {/* PRIMERA OPCIÓN: Si el objeto trae el array 'vehiculos' (Formato detallado) */}
+                                        {usuarioDetalle.vehiculos && usuarioDetalle.vehiculos.length > 0 ? (
+                                            usuarioDetalle.vehiculos.map((v, i) => (
+                                                <div key={i} className="bg-black/40 p-5 rounded-[1.5rem] border border-white/5 flex flex-col gap-2 group hover:border-emerald-500/20 transition-all">
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-white font-mono font-black text-lg tracking-tight group-hover:text-emerald-400 transition-colors">{v.placa}</span>
+                                                        <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
+                                                    </div>
+                                                    <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest italic">
+                                                        {v.modelo || "Modelo no especificado"} • <span className="text-emerald-500/70">{v.color || v.anio || "S/D"}</span>
+                                                    </p>
                                                 </div>
-                                                {/* CAMBIO AQUÍ: Ahora muestra el modelo real si existe */}
-                                                <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest italic">
-                                                    {usuarioDetalle.modelo || "Unidad Activa en Sistema"}
-                                                </p>
-                                            </div>
-                                        )) : (
+                                            ))
+                                        ) : usuarioDetalle.placas_registradas ? (
+                                            /* SEGUNDA OPCIÓN: Si solo tenemos las placas y el modelo en la raíz (Tu formato actual) */
+                                            usuarioDetalle.placas_registradas.split(',').map((p, i) => (
+                                                <div key={i} className="bg-black/40 p-5 rounded-[1.5rem] border border-white/5 flex flex-col gap-2 group hover:border-emerald-500/20 transition-all">
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-white font-mono font-black text-lg tracking-tight group-hover:text-emerald-400 transition-colors">{p.trim()}</span>
+                                                        <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
+                                                    </div>
+                                                    <p className="text-[10px] text-emerald-500 font-black uppercase tracking-widest italic">
+                                                        {usuarioDetalle.modelo || "Unidad Registrada"}
+                                                    </p>
+                                                </div>
+                                            ))
+                                        ) : (
                                             <div className="bg-black/20 p-5 rounded-[1.5rem] border border-dashed border-white/5 text-center">
                                                 <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest italic">Sin unidades registradas</p>
                                             </div>
