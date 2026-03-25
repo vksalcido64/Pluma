@@ -1,22 +1,80 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Calendar, Download, Car, ArrowUpRight, 
   ArrowDownLeft, ShieldAlert, Clock, Filter,
-  BarChart3, TrendingUp
+  BarChart3, TrendingUp, RefreshCcw
 } from 'lucide-react';
 
 const Reportes = () => {
     const [fechaSeleccionada, setFechaSeleccionada] = useState(new Date().toISOString().split('T')[0]);
-
-    // Datos simulados basados en tu petición
-    const [data] = useState({
-        entradas: 142,
-        salidas: 128,
-        dentro: 14,
-        denegados: 5,
-        horaPico: "07:15 AM - 08:30 AM",
-        eficiencia: "98.2%"
+    const [movimientos, setMovimientos] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [horaPico, setHoraPico] = useState("Sin registros");
+    const [stats, setStats] = useState({
+        entradas: 0,
+        salidas: 0,
+        dentro: 0,
+        denegados: 0,
+        eficiencia: "0%"
     });
+
+    const fetchReportData = useCallback(async () => {
+        setLoading(true);
+        try {
+            const resMov = await fetch(`https://yanelaplumz.com.mx/api_pluma/api.php?action=get_movimientos&fecha=${fechaSeleccionada}`);
+            const dataMov = await resMov.json();
+
+            if (dataMov.success) {
+                const logs = dataMov.data || [];
+                setMovimientos(logs);
+
+                // 1. Cálculo de Métricas Básicas
+                const entradas = logs.filter(m => m.tipo === 'Entrada').length;
+                const salidas = logs.filter(m => m.tipo === 'Salida').length;
+                const denegados = logs.filter(m => m.tipo === 'Denegado').length;
+                const totalIntentos = entradas + denegados;
+                
+                // 2. Lógica Dinámica de Hora Pico
+                if (logs.length > 0) {
+                    const conteoHoras = {};
+                    logs.forEach(mov => {
+                        const hora = new Date(mov.fecha).getHours();
+                        conteoHoras[hora] = (conteoHoras[hora] || 0) + 1;
+                    });
+
+                    const horaMasAlta = Object.keys(conteoHoras).reduce((a, b) => 
+                        conteoHoras[a] > conteoHoras[b] ? a : b
+                    );
+
+                    const h = parseInt(horaMasAlta);
+                    const ampm = h >= 12 ? 'PM' : 'AM';
+                    const displayH = h % 12 || 12;
+                    const nextH = (h + 1) % 12 || 12;
+                    const nextAmpm = (h + 1) >= 12 && (h + 1) < 24 ? 'PM' : 'AM';
+                    
+                    setHoraPico(`${displayH}:00 ${ampm} - ${nextH}:00 ${nextAmpm}`);
+                } else {
+                    setHoraPico("Sin tráfico");
+                }
+
+                setStats({
+                    entradas,
+                    salidas,
+                    dentro: Math.max(0, entradas - salidas),
+                    denegados,
+                    eficiencia: totalIntentos > 0 ? `${((entradas / totalIntentos) * 100).toFixed(1)}%` : "100%"
+                });
+            }
+        } catch (error) {
+            console.error("Error cargando reporte:", error);
+        } finally {
+            setLoading(false);
+        }
+    }, [fechaSeleccionada]);
+
+    useEffect(() => {
+        fetchReportData();
+    }, [fetchReportData]);
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -40,40 +98,43 @@ const Reportes = () => {
                             className="bg-transparent text-xs font-black text-white outline-none uppercase tracking-widest"
                         />
                     </div>
-                    <button className="bg-emerald-500 hover:bg-emerald-400 text-slate-900 px-6 py-3 rounded-2xl flex items-center gap-2 transition-all active:scale-95 shadow-lg shadow-emerald-500/20">
-                        <Download size={18} />
-                        <span className="font-black text-[10px] uppercase tracking-widest">Exportar PDF</span>
+                    <button 
+                        onClick={fetchReportData}
+                        className={`p-3 rounded-2xl bg-white/5 text-emerald-500 hover:bg-white/10 transition-all ${loading ? 'animate-spin' : ''}`}
+                    >
+                        <RefreshCcw size={18} />
                     </button>
                 </div>
             </div>
 
             {/* MÉTRICAS PRINCIPALES */}
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
-                <MetricCard label="Total Entradas" value={data.entradas} icon={<ArrowUpRight size={20}/>} color="emerald" />
-                <MetricCard label="Total Salidas" value={data.salidas} icon={<ArrowDownLeft size={20}/>} color="blue" />
-                <MetricCard label="Vehículos en Plantel" value={data.dentro} icon={<Car size={20}/>} color="purple" />
-                <MetricCard label="Accesos Denegados" value={data.denegados} icon={<ShieldAlert size={20}/>} color="red" />
+                <MetricCard label="Total Entradas" value={stats.entradas} icon={<ArrowUpRight size={20}/>} color="emerald" />
+                <MetricCard label="Total Salidas" value={stats.salidas} icon={<ArrowDownLeft size={20}/>} color="blue" />
+                <MetricCard label="En Plantel" value={stats.dentro} icon={<Car size={20}/>} color="purple" />
+                <MetricCard label="Denegados" value={stats.denegados} icon={<ShieldAlert size={20}/>} color="red" />
             </div>
 
-            {/* SECCIÓN DETALLADA */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 
-                {/* HORAS PICO Y ESTADÍSTICAS */}
+                {/* HORAS PICO Y EFICIENCIA */}
                 <div className="lg:col-span-4 space-y-6">
                     <div className="bg-slate-900/40 border border-white/5 p-8 rounded-[3rem] relative overflow-hidden group">
                         <Clock size={150} className="absolute -right-10 -top-10 text-white/[0.02] group-hover:text-emerald-500/[0.05] transition-colors" />
                         <div className="relative z-10">
                             <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
                                 <TrendingUp size={14} className="text-emerald-500" />
-                                Horas Pico de Entrada
+                                Horas Pico Detectadas
                             </h3>
-                            <p className="text-3xl font-black text-white italic uppercase leading-none">{data.horaPico}</p>
-                            <p className="text-[10px] font-bold text-emerald-500/60 uppercase mt-3 tracking-widest">Carga máxima detectada</p>
+                            <p className="text-2xl font-black text-white italic uppercase leading-tight">{horaPico}</p>
+                            <p className="text-[10px] font-bold text-emerald-500/60 uppercase mt-3 tracking-widest italic">Basado en registros reales</p>
                             
-                            <div className="mt-8 space-y-4">
-                                <ProgressBar label="Alumnos" percentage="75%" color="bg-emerald-500" />
-                                <ProgressBar label="Docentes" percentage="20%" color="bg-blue-500" />
-                                <ProgressBar label="Externos" percentage="5%" color="bg-slate-500" />
+                            <div className="mt-8 space-y-6">
+                                <ProgressBar label="Eficiencia Operativa" percentage={stats.eficiencia} color="bg-emerald-500" />
+                                <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
+                                    <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Punto de Control Activo</p>
+                                    <p className="text-xs font-bold text-white uppercase italic">Terminal Alpha - Principal</p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -84,48 +145,62 @@ const Reportes = () => {
                                 <BarChart3 size={20} className="text-emerald-500" />
                             </div>
                             <div>
-                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Eficiencia de Registro</p>
-                                <p className="text-xl font-black text-white tracking-tighter italic uppercase">{data.eficiencia}</p>
+                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Tasa de Éxito</p>
+                                <p className="text-xl font-black text-white tracking-tighter italic uppercase">{stats.eficiencia}</p>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* LISTADO DE MOVIMIENTOS RECIENTES (Auditoría) */}
+                {/* LOG DE AUDITORÍA REAL */}
                 <div className="lg:col-span-8">
-                    <div className="bg-slate-900/20 border border-white/5 rounded-[3rem] overflow-hidden">
+                    <div className="bg-slate-900/20 border border-white/5 rounded-[3rem] overflow-hidden min-h-[400px]">
                         <div className="p-8 border-b border-white/5 flex justify-between items-center">
-                            <h4 className="text-[10px] font-black text-white uppercase tracking-[0.4em]">Log de Movimientos Autorizados</h4>
+                            <h4 className="text-[10px] font-black text-white uppercase tracking-[0.4em]">Log de Movimientos - {fechaSeleccionada}</h4>
                             <Filter size={14} className="text-slate-600" />
                         </div>
                         <div className="p-4 overflow-x-auto custom-scrollbar">
                             <table className="w-full text-left border-separate border-spacing-y-3">
                                 <thead>
                                     <tr className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">
-                                        <th className="px-6 pb-2">Vehículo</th>
                                         <th className="px-6 pb-2">Placa</th>
                                         <th className="px-6 pb-2">Hora</th>
                                         <th className="px-6 pb-2">Tipo</th>
+                                        <th className="px-6 pb-2">Punto</th>
                                         <th className="px-6 pb-2 text-right">Estatus</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <ReportRow v="Mazda 3" p="ABC-12-34" h="07:45 AM" t="Entrada" s="Correcto" />
-                                    <ReportRow v="Toyota Tacoma" p="VNK-92-26" h="08:12 AM" t="Entrada" s="Correcto" />
-                                    <ReportRow v="Honda Civic" p="XYZ-55-11" h="08:20 AM" t="Denegado" s="Error" color="text-red-400" />
-                                    <ReportRow v="Nissan Versa" p="LMN-88-22" h="08:45 AM" t="Salida" s="Correcto" />
+                                    {movimientos.length > 0 ? (
+                                        movimientos.map((m, i) => (
+                                            <ReportRow 
+                                                key={m.id || i}
+                                                p={m.placa} 
+                                                h={new Date(m.fecha).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} 
+                                                t={m.tipo} 
+                                                punto={m.punto || 'Acceso Gral'}
+                                                s="Validado"
+                                                color={m.tipo === 'Entrada' ? "text-emerald-400" : m.tipo === 'Salida' ? "text-blue-400" : "text-red-400"}
+                                            />
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan="5" className="text-center py-20 text-slate-600 font-black uppercase text-[10px] tracking-widest italic">
+                                                Sin movimientos registrados para esta fecha
+                                            </td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
                         </div>
                     </div>
                 </div>
-
             </div>
         </div>
     );
 };
 
-// --- SUB-COMPONENTES ---
+// --- SUB-COMPONENTES AUXILIARES ---
 
 const MetricCard = ({ label, value, icon, color }) => {
     const colors = {
@@ -142,7 +217,9 @@ const MetricCard = ({ label, value, icon, color }) => {
                 <div className="w-2 h-2 rounded-full bg-white/20"></div>
             </div>
             <p className="text-[9px] font-black uppercase opacity-50 tracking-widest">{label}</p>
-            <p className="text-3xl font-black text-white leading-none mt-1 italic uppercase">{value}</p>
+            <p className="text-3xl font-black text-white leading-none mt-1 italic uppercase">
+                {String(value || 0).padStart(2, '0')}
+            </p>
         </div>
     );
 };
@@ -154,19 +231,21 @@ const ProgressBar = ({ label, percentage, color }) => (
             <span className="text-white">{percentage}</span>
         </div>
         <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
-            <div className={`h-full ${color} rounded-full`} style={{ width: percentage }}></div>
+            <div className={`h-full ${color} rounded-full transition-all duration-1000`} style={{ width: percentage }}></div>
         </div>
     </div>
 );
 
-const ReportRow = ({ v, p, h, t, s, color="text-emerald-400" }) => (
-    <tr className="bg-white/[0.02] hover:bg-white/[0.05] transition-colors">
-        <td className="px-6 py-4 rounded-l-2xl text-[11px] font-black text-white uppercase">{v}</td>
-        <td className="px-6 py-4 text-[10px] font-mono font-bold text-slate-400">{p}</td>
-        <td className="px-6 py-4 text-[10px] font-bold text-slate-500">{h}</td>
+const ReportRow = ({ p, h, t, punto, s, color }) => (
+    <tr className="bg-white/[0.02] hover:bg-white/[0.05] transition-colors group">
+        <td className="px-6 py-4 rounded-l-2xl text-[12px] font-mono font-black text-white uppercase">{p}</td>
+        <td className="px-6 py-4 text-[10px] font-bold text-slate-400">{h}</td>
         <td className={`px-6 py-4 text-[10px] font-black uppercase italic ${color}`}>{t}</td>
+        <td className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase">{punto}</td>
         <td className="px-6 py-4 rounded-r-2xl text-right">
-            <span className="text-[8px] font-black px-2 py-1 bg-white/5 rounded-md text-slate-500 uppercase">{s}</span>
+            <span className="text-[8px] font-black px-2 py-1 bg-emerald-500/10 text-emerald-500 rounded-md uppercase border border-emerald-500/20">
+                {s}
+            </span>
         </td>
     </tr>
 );
